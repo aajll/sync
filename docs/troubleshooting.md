@@ -7,7 +7,7 @@
 | Symptom | Check |
 |---------|-------|
 | No bar at all | `pgrep waybar`; if empty, run `waybar -c waybar/config.jsonc -s waybar/style.css` and inspect stderr |
-| CSS parse error on launch | `waybar/colors.css` symlink missing; run `scripts/toggle_theme.sh init` |
+| CSS parse error on launch | Generated `waybar/colors.css` missing; run `scripts/toggle_theme.sh init` |
 | Theme indicator stuck | Check `.theme_state` and `gsettings get org.gnome.desktop.interface color-scheme` |
 | Battery missing | `upower -e` must list `/org/freedesktop/UPower/devices/DisplayDevice` |
 | Missing glyphs | Install a Nerd Font (the config asks for `SauceCodePro Nerd Font`) |

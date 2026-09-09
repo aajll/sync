@@ -89,11 +89,6 @@ toggle_theme() {
   # Update waybar theme (optional - only if config present)
   update_waybar_theme "$new_theme"
 
-  # SIGUSR2 forces waybar to reread config + style. Only safe here, on an
-  # established session: signalling during `init` raced waybar's own startup
-  # (async D-Bus proxy setup) and segfaulted it in libgiomm. No-op if not running.
-  pkill -SIGUSR2 -x waybar 2>/dev/null || true
-
   # Reload Sway to apply the generated colors. This no longer rotates the
   # wallpaper: config.d/wallpaper runs rotate-wallpaper.sh with --if-unset, a
   # no-op whenever wp.png is already set, so the current wallpaper persists.
@@ -261,10 +256,11 @@ update_mako_theme() {
   fi
 }
 
-# Update waybar theme by symlinking the active palette. The live reload signal
-# is sent by toggle_theme() only; at init time waybar reads the symlink itself
-# on startup, and signalling it mid-startup crashes it (see toggle_theme).
-# Safe no-op when the waybar dir is absent (e.g., user still on swaybar).
+# Waybar watches this regular file through reload_style_on_change. Its 0.12
+# watcher follows symlinks, so swapping a link would leave it watching the old
+# palette. Avoid SIGUSR2: it leaks monitor handlers until hotplug creates extra
+# bars (https://github.com/Alexays/Waybar/pull/4705).
+# Safe no-op when the Waybar palette is absent.
 update_waybar_theme() {
   local theme="$1"
   local waybar_dir="$HOME/.config/sway/waybar"
@@ -272,7 +268,14 @@ update_waybar_theme() {
 
   [[ -d "$waybar_dir" && -f "$waybar_dir/$target" ]] || return 0
 
-  ln -sfn "$target" "$waybar_dir/colors.css"
+  # Migrate the old symlink before copying, or cp would overwrite its source.
+  if [[ -L "$waybar_dir/colors.css" ]]; then
+    rm "$waybar_dir/colors.css"
+  fi
+  # Preserve the watched file's inode. Skip unchanged palettes at session init.
+  if ! cmp -s "$waybar_dir/$target" "$waybar_dir/colors.css"; then
+    cp "$waybar_dir/$target" "$waybar_dir/colors.css"
+  fi
 }
 
 # Initialize theme on startup

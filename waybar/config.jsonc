@@ -17,6 +17,8 @@
   "layer": "top",
   "position": "top",
   "height": 32,
+  // Palette changes reload CSS only, not monitor subscriptions.
+  "reload_style_on_change": true,
   // 0 on purpose: the .module pill framework in style.css owns the gaps
   // (8px padding per pill side -> uniform 16px between all pills).
   "spacing": 0,

@@ -28,11 +28,13 @@ bash tests/host-env-sandbox.sh "$PWD"   # host.env loader + generator + wallpape
 bash tests/monitor-sandbox.sh "$PWD"    # monitor-hotplug resolution
 ```
 
-All seven run in CI (the `theme-tests` job). What still needs a live session:
+All seven run in CI (the `theme-tests` job). The optional `bash tests/waybar-hotplug-sandbox.sh "$PWD"` runs real Waybar in an isolated headless Sway session. It checks six theme flips followed by hotplug, one bar on the new output and six CSS-only reloads. Requires Sway, Waybar, `dbus-run-session` and `jq`.
 
-- **Launch Waybar directly** (stderr shows parse errors):
+What still needs a live session:
+
+- **Launch Waybar directly** from the repo root, stderr shows parse errors:
   ```bash
-  waybar -c waybar/config.jsonc -s waybar/style.css
+  (cd waybar && waybar -c config.jsonc -s style.css)
   ```
 - **Test a custom Waybar module** in isolation:
   ```bash
@@ -116,7 +118,7 @@ Examples:
 - **`config.d/`:** Drop-in Sway snippets sourced via `include config.d/*`. `waybar` launches the bar; `wallpaper` bootstraps `images/wp.png` from `images/wallpapers/` via `rotate-wallpaper.sh --if-unset` (a no-op when one is already set; rotation is on-demand via `$mod+Shift+w`); `floating_windows` carries per-app rules. (The compose-key input rule comes from `host.env` at the repo root, rendered into a runtime snippet by `scripts/host-env.sh` and included directly by `config`, not a `config.d` drop-in.)
 - **`waybar/`:** Status bar config.
   - `config.jsonc`: module layout
-  - `style.css`: imports the active palette via the `colors.css` symlink (gitignored); also carries the shared `.module` pill framework (uniform padding + hover for every pill; see `docs/waybar.md`)
+  - `style.css`: imports the generated regular file `colors.css`, which is gitignored and watched through `reload_style_on_change`; also carries the shared `.module` pill framework. The launcher runs from `waybar/` so Waybar 0.12 resolves watched imports correctly. See `docs/waybar.md`.
   - `colors-dark.css` / `colors-light.css`: `@define-color` palettes. Both files **must define the same names** so `style.css` resolves in either palette.
   - `modules/`: custom shell modules for state Waybar can't read natively (DDC/CI brightness, theme indicator, mako DND).
   - `menus/`: GtkBuilder XML for the native dropdown menus (audio, media, power); see `docs/waybar.md` for the contract.
@@ -134,7 +136,7 @@ Examples:
 1. **Native module:** add its name to a `modules-*` array in `waybar/config.jsonc` and a config block below. Native modules are preferred when one fits; they're event-driven.
 2. **Custom shell module:** drop the script in `waybar/modules/`, add `"custom/<name>"` to a cluster with `"exec"`, `"interval"`, and optional `"on-click"`.
 3. `chmod +x waybar/modules/<name>.sh`.
-4. Reload: `pkill -SIGUSR2 -x waybar` (style or `config.jsonc` changes; waybar rereads both). `swaymsg reload` no longer relaunches waybar; if you ever need a full restart, `pkill -x waybar` and let the next sway login (or run the launch command from `config.d/waybar`) bring it back.
+4. CSS reloads automatically. For `config.jsonc` or menu XML changes, stop the existing Waybar and run the launch command from `config.d/waybar`, or log out and back in. Avoid `SIGUSR2` on Waybar 0.12: each reload leaks a monitor handler and causes duplicate bars after hotplug, upstream #4705. `swaymsg reload` does not relaunch Waybar.
 
 ### Modifying the Sway config
 1. Edit `config` (or a snippet under `config.d/`).
@@ -143,11 +145,11 @@ Examples:
 
 ### Modifying Waybar colors
 1. Edit `waybar/colors-dark.css` and `waybar/colors-light.css`. Keep `@define-color` names identical across both.
-2. Verify CSS parses by relaunching Waybar manually. Parse errors land on stderr:
+2. Verify CSS parses by relaunching Waybar manually from the repo root. Parse errors land on stderr:
    ```bash
-   waybar -c waybar/config.jsonc -s waybar/style.css
+   (cd waybar && waybar -c config.jsonc -s style.css)
    ```
-3. Live reload a running Waybar: `pkill -SIGUSR2 -x waybar`.
+3. Apply the edited palette with `scripts/toggle_theme.sh init`. It copies the current theme into `colors.css`; Waybar reloads CSS without a signal.
 
 ## Handling hardware variability
 
@@ -159,9 +161,9 @@ This config is shared across laptops and desktops.
 
 ## Troubleshooting
 
-- **Waybar didn't start:** run it in the foreground (`waybar -c waybar/config.jsonc -s waybar/style.css`). Config and CSS errors print to stderr.
+- **Waybar didn't start:** from the repo root, run `(cd waybar && waybar -c config.jsonc -s style.css)` in the foreground. Config and CSS errors print to stderr.
 - **Module shows nothing:** run the module script directly to see what it prints. Empty output hides the module by design.
-- **Theme didn't repaint:** confirm `waybar/colors.css` symlink exists (`scripts/toggle_theme.sh init` recreates it) and that Waybar is running (`pgrep -x waybar`).
+- **Theme didn't repaint:** confirm `waybar/colors.css` is a regular file, `reload_style_on_change` is enabled, and Waybar was launched from `waybar/`. `scripts/toggle_theme.sh init` regenerates the palette; `pgrep -x waybar` checks the process.
 - **Permissions:** all scripts must be `chmod +x`.
 
 ## Design philosophy

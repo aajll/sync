@@ -2,7 +2,7 @@
 
 **What:** The unified dark/light theme across bar, terminal, launcher, and notifications, plus on-demand wallpaper rotation.
 **Where:** `scripts/toggle_theme.sh` and `scripts/rotate-wallpaper.sh`; the palettes in `waybar/colors-{dark,light}.css`; per-app bits in `extra/{kitty,wofi,mako}`.
-**Verified:** `tests/theme-sandbox.sh` in CI, running the real `toggle_theme.sh` and `scripts/mako-mode-sync.sh` in a throwaway `$HOME` with session binaries stubbed (40 assertions: theme/kitty/gnome flips and init, mako mode re-application after a simulated daemon restart, and the hooks dispatcher).
+**Verified:** `tests/theme-sandbox.sh` in CI, running the real `toggle_theme.sh` and `scripts/mako-mode-sync.sh` in a throwaway `$HOME` with session binaries stubbed to check theme updates, palette migration, signal-free Waybar updates, mako mode restoration, and hook dispatch.
 
 ## Theme toggle (dark/light)
 
@@ -10,7 +10,7 @@ A single keybind (`Mod+Shift+t`) flips Sway, Waybar, kitty, wofi, mako, and (und
 
 - **Status indicator:** 🌙 dark / ☀️ light (`waybar/modules/theme.sh`).
 - **Gnome sync:** when `gsettings` reports `org.gnome.desktop.interface color-scheme`, that is the source of truth; otherwise `.theme_state` is.
-- **Live Waybar repaint:** symlink swap + `SIGUSR2`, no restart.
+- Waybar watches the generated `colors.css` for CSS-only reloads. Theme changes copy the selected palette into that file without signalling or restarting Waybar. See [waybar.md](waybar.md) for the Waybar 0.12 hotplug bug this avoids.
 - **Kitty:** Tokyo Night (MIT, bundled in `extra/kitty/themes/`). On a fresh box, `init` seeds `~/.config/kitty/` (theme files into the conventional `~/.config/kitty/themes/` + a minimal `kitty.conf`); existing kitty configs are never overwritten, and a `tokyo_night_*.conf` you install in that themes dir wins over the bundled copy. See `extra/EXTRA.md`.
 
 ```bash

@@ -4,7 +4,11 @@
 **Where:** `waybar/`: `config.jsonc` (layout), `style.css` + `colors-{dark,light}.css` (palette), `modules/` (custom shell modules), `menus/` (dropdown menu XML). Launched from `config.d/waybar`.
 **Verified:** parse errors print to stderr when run in the foreground; the theme and DND custom modules are exercised by the CI theme suite (`tests/theme-sandbox.sh`).
 
-Waybar is launched by `config.d/waybar` on Sway start. The snippet points `waybar/colors.css` at the active palette, then supervises Waybar (respawning it if it dies to an early-boot D-Bus race, capped at 5 attempts). `exec` (not `exec_always`) so reloads don't kill the bar; theme switches reload it live via `SIGUSR2`.
+Waybar is launched by `config.d/waybar` on Sway start. The snippet copies the active palette into the generated `waybar/colors.css`, then supervises Waybar, with up to five attempts after abnormal exits. It uses `exec`, not `exec_always`, so Sway reloads leave the bar running. Theme changes use `reload_style_on_change` to reload CSS without rebuilding the bar.
+
+The launcher changes into the `waybar/` directory before starting Waybar. Version 0.12 resolves watched CSS imports relative to the working directory. `colors.css` must be a regular file, because its file watcher follows symlinks and would keep watching the old palette after a link swap.
+
+Avoid `SIGUSR2` on Waybar 0.12. Each reload adds another monitor-event handler, so a later monitor connection creates duplicate bars. See [upstream fix #4705](https://github.com/Alexays/Waybar/pull/4705). The optional integration test `bash tests/waybar-hotplug-sandbox.sh "$PWD"` runs real Waybar in an isolated headless Sway session. Six theme flips followed by a new output must produce one bar and six CSS-only reloads. It requires Sway, Waybar, `dbus-run-session` and `jq`.
 
 ## Layout
 
@@ -57,8 +61,8 @@ Custom modules are polled on their interval, and the output rules are the interf
 - **Budget ~50ms per run.** If the source is slow (a DDC/CI probe, a daemon query), cache on the producer side and read the cache here. `brightness.sh` reads the cache that `scripts/external-brightness.sh` writes.
 - **Probe before you call:** `command -v jq >/dev/null 2>&1 || exit 0`.
 
-After a change: `pkill -SIGUSR2 -x waybar` (Waybar rereads config and CSS). `swaymsg reload` no longer relaunches Waybar; for a full restart, `pkill -x waybar` and let the next login (or the `config.d/waybar` command) bring it back.
+CSS edits reload automatically. Changes to `config.jsonc` or menu XML need a full Waybar restart on versions affected by #4705, not `SIGUSR2`. `swaymsg reload` does not relaunch Waybar. Stop the existing bar and relaunch with the command in `config.d/waybar`, or log out and back in.
 
 ## Theming
 
-Edit `waybar/colors-dark.css` and `waybar/colors-light.css`; both **must define the same `@define-color` names** so `style.css` resolves in either palette. Don't put colors in `style.css`; use the semantic tokens (`@bg`, `@fg`, `@accent`, `@warning`, …). The theme toggle swaps the `colors.css` symlink and sends `SIGUSR2` so Waybar repaints in place. See [theming.md](theming.md).
+Edit `waybar/colors-dark.css` and `waybar/colors-light.css`; both **must define the same `@define-color` names** so `style.css` resolves in either palette. Don't put colors in `style.css`; use the semantic tokens (`@bg`, `@fg`, `@accent`, `@warning`, …). The theme toggle copies the selected palette into the generated `colors.css`, which Waybar watches for CSS-only reloads. After editing a source palette, run `scripts/toggle_theme.sh init` to apply the current theme. Do not edit `colors.css` directly; the next theme update overwrites it. See [theming.md](theming.md).

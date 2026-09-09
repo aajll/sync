@@ -47,6 +47,9 @@ new_sandbox() { # sets HOME_ RUNTIME_ BIN_ GNOME_LOG_
     printf '#!/bin/sh\nexit 1\n' > "$BIN_/$b"
     chmod +x "$BIN_/$b"
   done
+  # Record signals so repeated theme flips cannot reintroduce Waybar's
+  # SIGUSR2 monitor-handler leak (upstream Waybar #4705).
+  printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/signals"\nexit 1\n' "$SB" > "$BIN_/pkill"
   # The repo's working tree carries an untracked .theme_state; drop it so
   # the sandbox really is a fresh box.
   rm -f "$Sway/.theme_state"
@@ -108,11 +111,16 @@ trap cleanup EXIT
 
 # ---------------------------------------------------------------- S1: init, fresh box
 new_sandbox
+# Exercise migration from the old palette symlink without overwriting it.
+ln -sfn colors-dark.css "$Sway/waybar/colors.css"
+cp "$Sway/waybar/colors-dark.css" "$SB/dark-original.css"
 run_tts init
 assert "init exits 0"                 eq "$RC" 0
 assert "init does not create .theme_state" bash -c "[[ ! -f '$HOME_/.config/sway/.theme_state' ]]"
 assert "init writes dark sway_theme_config" has "$RUNTIME_/sway/sway_theme_config" 'set $bg_color #323232'
-assert "init links waybar dark palette"  link_to "$Sway/waybar/colors.css" "colors-dark.css"
+assert "Waybar enables CSS-only reloads" has "$Sway/waybar/config.jsonc" '"reload_style_on_change": true'
+assert "init copies waybar dark palette" same_as "$Sway/waybar/colors.css" "$Sway/waybar/colors-dark.css"
+assert "init replaces old palette symlink" test ! -L "$Sway/waybar/colors.css"
 assert "init links wofi dark style"     link_to "$HOME_/.config/wofi/style.css" "$Sway/extra/wofi/style-dark.css"
 # Theme files stage into kitty's conventional dir, ~/.config/kitty/themes/.
 assert "init seeds user kitty.conf"     same_as "$HOME_/.config/kitty/kitty.conf" "$Sway/extra/kitty/kitty.conf"
@@ -126,7 +134,8 @@ run_tts toggle
 assert "toggle exits 0 despite failing notify-send" eq "$RC" 0
 assert "toggle flips state to light"  eq "$(cat "$HOME_/.config/sway/.theme_state")" "light"
 assert "toggle writes light config"   has "$RUNTIME_/sway/sway_theme_config" 'set $bg_color #f0f0f0'
-assert "toggle links waybar light"    link_to "$Sway/waybar/colors.css" "colors-light.css"
+assert "toggle copies waybar light" same_as "$Sway/waybar/colors.css" "$Sway/waybar/colors-light.css"
+assert "toggle leaves dark source untouched" same_as "$Sway/waybar/colors-dark.css" "$SB/dark-original.css"
 assert "toggle links wofi light"      link_to "$HOME_/.config/wofi/style.css" "$Sway/extra/wofi/style-light.css"
 assert "toggle sets current-theme=day" same_as "$HOME_/.config/kitty/current-theme.conf" "$HOME_/.config/kitty/themes/tokyo_night_day.conf"
 assert "toggle refreshes theme flag (light)" eq "$(cat "$RUNTIME_/sway/toggles/theme")" "light"
@@ -136,6 +145,8 @@ run_tts toggle
 assert "round trip returns to dark" eq "$(cat "$HOME_/.config/sway/.theme_state")" "dark"
 assert "round trip sets current-theme=moon" same_as "$HOME_/.config/kitty/current-theme.conf" "$HOME_/.config/kitty/themes/tokyo_night_moon.conf"
 assert "round trip refreshes theme flag (dark)" eq "$(cat "$RUNTIME_/sway/toggles/theme")" "dark"
+assert "round trip restores Waybar palette" same_as "$Sway/waybar/colors.css" "$Sway/waybar/colors-dark.css"
+assert "theme updates never signal Waybar" bash -c "! grep -q waybar '$SB/signals' 2>/dev/null"
 
 # ----------------------------------------------------------------------- S4: get
 run_tts get

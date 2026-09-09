@@ -92,7 +92,7 @@ These scripts live in `scripts/` and are invoked in place from `$HOME/.config/sw
 - `toggle_theme.sh`: Switches the desktop between dark and light themes in one keypress (`Mod+Shift+t`). Source of truth is Gnome's `org.gnome.desktop.interface color-scheme` when `gsettings` is available, otherwise `~/.config/sway/.theme_state`. Writes the `theme` flag (with the resolved value) on every flip and at `init`, so the Waybar indicator matches on machines without gsettings.
     - **Updates in lockstep:**
         - Sway colors via `$XDG_RUNTIME_DIR/sway/sway_theme_config` (sourced from `config`)
-        - Waybar palette by symlinking `waybar/colors.css` → `colors-{dark,light}.css`; `toggle` additionally sends `SIGUSR2` for a live reload (`init` deliberately doesn't; signalling waybar mid-startup races its async D-Bus setup and segfaults it)
+        - Waybar palette by copying `colors-{dark,light}.css` into the generated `waybar/colors.css`. `reload_style_on_change` reloads CSS only. Neither `toggle` nor `init` sends `SIGUSR2`, which leaks monitor handlers on Waybar 0.12 and causes duplicate bars after hotplug.
         - Kitty theme (Tokyo Night Moon/Day) via `kitty @ set-colors`
         - Wofi theme by symlinking `~/.config/wofi/style.css`
         - Mako notification theme (when installed) with `makoctl reload`
@@ -103,5 +103,5 @@ These scripts live in `scripts/` and are invoked in place from `$HOME/.config/sw
         - `toggle_theme.sh init`: re-apply current theme to all components (invoked at Sway startup)
         - `toggle_theme.sh get`: print `dark` or `light`
     - **Component prerequisites:**
-        - **Waybar:** `waybar/colors-dark.css` and `waybar/colors-light.css` define the palette via `@define-color`. `colors.css` symlink is managed automatically and gitignored. `SIGUSR2` is best-effort, a no-op if Waybar isn't running.
+        - **Waybar:** `waybar/colors-dark.css` and `waybar/colors-light.css` define the palette via `@define-color`. `colors.css` is a generated, gitignored regular file. Old symlinks are removed before copying so source palettes are never overwritten. The launcher runs from `waybar/` so Waybar 0.12 can find the imported file to watch. Missing source palettes are a silent no-op.
         - **Wofi:** no setup needed. `~/.config/wofi/style.css` is symlinked straight at the repo source `extra/wofi/style-{dark,light}.css`. See `extra/EXTRA.md`.

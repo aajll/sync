@@ -1,6 +1,6 @@
-/* Waybar theme. Active palette is resolved via the `colors.css` symlink,
- * swapped by ~/.config/sway/scripts/toggle_theme.sh and reloaded with
- * SIGUSR2. See colors-dark.css / colors-light.css for available tokens. */
+/* Waybar theme. toggle_theme.sh copies the active palette into colors.css.
+ * reload_style_on_change watches it for CSS-only updates, without SIGUSR2.
+ * See colors-dark.css / colors-light.css for available tokens. */
 @import "colors.css";
 
 * {
