@@ -126,7 +126,7 @@ default_floating_border pixel 2
     bindsym $mod+q kill
 
     # Start your launcher
-    bindsym $mod+d exec $menu
+    bindsym $mod+space exec $menu
 
     # Disable the touchpad
     bindsym $mod+Ctrl+t exec $HOME/.config/sway/scripts/toggle-touchpad.sh
@@ -226,7 +226,7 @@ default_floating_border pixel 2
     bindsym $mod+Shift+space floating toggle
 
     # Swap focus between the tiling area and the floating area
-    bindsym $mod+space focus mode_toggle
+    bindsym $mod+Ctrl+space focus mode_toggle
 
     # Move focus to the parent container
     bindsym $mod+a focus parent
