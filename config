@@ -9,7 +9,7 @@ exec dbus-update-activation-environment --systemd XDG_CURRENT_DESKTOP=sway WAYLA
 ### Variables
 #
 # Logo key. Use Mod1 for Alt. Mod4 for Super
-set $mod Mod1
+set $mod Mod4
 set $super Mod4
 # Home row direction keys, like vim
 set $left h
@@ -32,7 +32,7 @@ exec systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DES
 bindsym Control+Mod1+s exec $HOME/.config/sway/scripts/screenshot.sh region
 
 # Screen locking
-bindsym $super+l exec swaylock -f -i ~/.config/sway/images/wp.png
+bindsym $super+Ctrl+l exec swaylock -f -i ~/.config/sway/images/wp.png
 
 ### Output configuration
 
@@ -129,7 +129,7 @@ default_floating_border pixel 2
     bindsym $mod+d exec $menu
 
     # Disable the touchpad
-    bindsym $mod+Ctrl+p exec $HOME/.config/sway/scripts/toggle-touchpad.sh
+    bindsym $mod+Ctrl+t exec $HOME/.config/sway/scripts/toggle-touchpad.sh
 
     # Toggle theme (Dark/Light mode)
     bindsym $mod+Shift+t exec $HOME/.config/sway/scripts/toggle_theme.sh toggle
