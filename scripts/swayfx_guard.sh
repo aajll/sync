@@ -24,10 +24,6 @@ blur_xray enable
 # Rounded corners (SwayFX)
 corner_radius 10
 
-# Gaps
-gaps inner 5
-gaps outer 5
-
 # Dim inactive
 default_dim_inactive 0.15
 EOF
